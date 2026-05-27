@@ -1,0 +1,44 @@
+// ============================================================
+// 10. LevelStarter.cs
+// Назначение: Плавное появление при старте уровня (обратный эффект затемнения)
+// ============================================================
+using UnityEngine;
+using UnityEngine.UI;
+using System.Collections;
+
+public class LevelStarter : MonoBehaviour
+{
+    [Header("UI элементы")]
+    [SerializeField] private GameObject loadingScreen; // Экран загрузки
+    [SerializeField] private Image blackPanel;         // Панель затемнения
+    [SerializeField] private float fadeTime = 1f;      // Время появления
+    
+    void Start()
+    {
+        StartCoroutine(FadeIn());
+    }
+    
+    IEnumerator FadeIn()
+    {
+        yield return null; // Ждём один кадр для загрузки всех компонентов
+        
+        if (blackPanel != null)
+        {
+            float t = fadeTime;
+            Color panelColor = blackPanel.color;
+            while (t > 0)
+            {
+                t -= Time.deltaTime;
+                panelColor.a = t / fadeTime;
+                blackPanel.color = panelColor;
+                yield return null;
+            }
+            panelColor.a = 0;
+            blackPanel.color = panelColor;
+        }
+        
+        // Прячем экран загрузки
+        if (loadingScreen != null)
+            loadingScreen.SetActive(false);
+    }
+}
