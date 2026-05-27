@@ -1,0 +1,63 @@
+// ============================================================
+// 12. MobileButton.cs
+// Назначение: Обработка сенсорных кнопок управления (влево, вправо, прыжок)
+// ============================================================
+using UnityEngine;
+using UnityEngine.EventSystems;
+
+public class MobileButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+{
+    [Header("Настройки")]
+    [SerializeField] private string direction = "left"; // "left", "right" или "jump"
+    
+    private PlayerMovement playerMovement;
+    private bool isPressed = false; // Флаг для fallback-обработки (баг B-6)
+    
+    void Start()
+    {
+        playerMovement = FindObjectOfType<PlayerMovement>();
+    }
+    
+    // Дополнительная проверка для бюджетных устройств (баг B-6)
+    void Update()
+    {
+        if (isPressed && direction != "jump")
+        {
+            if (Input.GetMouseButtonUp(0))
+            {
+                StopMovement();
+                isPressed = false;
+            }
+        }
+    }
+    
+    // Вызывается при касании кнопки
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        if (playerMovement == null) return;
+        isPressed = true;
+        
+        if (direction == "left")
+            playerMovement.MoveLeft();
+        else if (direction == "right")
+            playerMovement.MoveRight();
+        else if (direction == "jump")
+            playerMovement.Jump();
+    }
+    
+    // Вызывается при отпускании кнопки
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        if (playerMovement == null) return;
+        isPressed = false;
+        
+        if (direction == "left" || direction == "right")
+            playerMovement.StopMove();
+    }
+    
+    private void StopMovement()
+    {
+        if (playerMovement != null)
+            playerMovement.StopMove();
+    }
+}
