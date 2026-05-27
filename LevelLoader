@@ -1,0 +1,83 @@
+// ============================================================
+// 9. LevelLoader.cs
+// Назначение: Асинхронная загрузка уровней с эффектом затемнения
+// ============================================================
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using TMPro;
+using System.Collections;
+
+public class LevelLoader : MonoBehaviour
+{
+    [Header("Настройки")]
+    [SerializeField] private string nextLevelName = "Level_2"; // Имя следующей сцены
+    [SerializeField] private float fadeTime = 1f;              // Время затемнения
+    
+    [Header("UI элементы")]
+    [SerializeField] private GameObject loadingScreen;         // Экран загрузки
+    [SerializeField] private Image blackPanel;                // Панель затемнения
+    [SerializeField] private TMP_Text loadingText;            // Текст "Загрузка..."
+    [SerializeField] private Slider progressBar;              // Прогресс-бар (опционально)
+    
+    private bool isLoading = false;
+    
+    // Срабатывает при касании игроком триггера перехода на следующий уровень
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Player") && !isLoading)
+        {
+            StartCoroutine(LoadLevelWithFade());
+        }
+    }
+    
+    IEnumerator LoadLevelWithFade()
+    {
+        isLoading = true;
+        
+        // Показываем экран загрузки
+        if (loadingScreen != null)
+            loadingScreen.SetActive(true);
+        
+        // Анимация затемнения
+        if (blackPanel != null)
+        {
+            float t = 0;
+            Color panelColor = blackPanel.color;
+            while (t < fadeTime)
+            {
+                t += Time.deltaTime;
+                panelColor.a = t / fadeTime;
+                blackPanel.color = panelColor;
+                
+                if (loadingText != null)
+                    loadingText.text = "Загрузка... " + Mathf.RoundToInt((t / fadeTime) * 100) + "%";
+                
+                yield return null;
+            }
+            panelColor.a = 1;
+            blackPanel.color = panelColor;
+        }
+        
+        // Асинхронная загрузка следующей сцены
+        AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(nextLevelName);
+        
+        // Ожидание завершения загрузки
+        while (!asyncLoad.isDone)
+        {
+            float progress = Mathf.Clamp01(asyncLoad.progress / 0.9f);
+            if (loadingText != null)
+                loadingText.text = "Загрузка... " + Mathf.RoundToInt(progress * 100) + "%";
+            if (progressBar != null)
+                progressBar.value = progress;
+            
+            yield return null;
+        }
+    }
+    
+    // Для отладки — загрузка без анимации
+    public void LoadLevelImmediate()
+    {
+        SceneManager.LoadScene(nextLevelName);
+    }
+}
