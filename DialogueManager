@@ -1,0 +1,93 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+public class DialogueManager : MonoBehaviour
+{
+    [Header("UI элементы")]
+    [SerializeField] private GameObject dialoguePanel;
+    [SerializeField] private TMP_Text dialogueText;
+    [SerializeField] private Button nextButton;
+
+    [Header("Настройки")]
+    [SerializeField] private float typingSpeed = 0.05f;
+
+    private string[] currentLines;
+    private int currentLineIndex = 0;
+    private bool isTyping = false;
+    private DialogueTrigger currentTrigger;
+
+    void Start()
+    {
+        if (dialoguePanel != null)
+            dialoguePanel.SetActive(false);
+
+        if (nextButton != null)
+            nextButton.onClick.AddListener(DisplayNextLine);
+    }
+
+    public void StartDialogue(string[] lines, DialogueTrigger trigger)
+    {
+        currentTrigger = trigger;
+        currentLines = lines;
+        currentLineIndex = 0;
+
+        if (dialoguePanel != null)
+            dialoguePanel.SetActive(true);
+
+        StopAllCoroutines();
+        StartCoroutine(TypeLine(lines[currentLineIndex]));
+    }
+
+    System.Collections.IEnumerator TypeLine(string line)
+    {
+        isTyping = true;
+
+        if (dialogueText != null)
+            dialogueText.text = "";
+
+        foreach (char c in line.ToCharArray())
+        {
+            if (dialogueText != null)
+                dialogueText.text += c;
+            yield return new WaitForSeconds(typingSpeed);
+        }
+
+        isTyping = false;
+    }
+
+    public void DisplayNextLine()
+    {
+        if (isTyping)
+        {
+            StopAllCoroutines();
+            if (dialogueText != null)
+                dialogueText.text = currentLines[currentLineIndex];
+            isTyping = false;
+            return;
+        }
+
+        currentLineIndex++;
+
+        if (currentLineIndex < currentLines.Length)
+        {
+            StartCoroutine(TypeLine(currentLines[currentLineIndex]));
+        }
+        else
+        {
+            EndDialogue();
+        }
+    }
+
+    public void EndDialogue()
+    {
+        if (dialoguePanel != null)
+            dialoguePanel.SetActive(false);
+
+        if (currentTrigger != null)
+        {
+            currentTrigger.EndDialogue();
+            currentTrigger = null;
+        }
+    }
+}
