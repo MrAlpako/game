@@ -1,0 +1,40 @@
+// ============================================================
+// 11. MainMenu.cs
+// Назначение: Главное меню игры (кнопки старта и выхода)
+// ============================================================
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class MainMenu : MonoBehaviour
+{
+    [Header("Настройки")]
+    [SerializeField] private string firstLevelName = "Level_1"; // Первый уровень
+    
+    // Запуск игры
+    public void StartGame()
+    {
+        SceneManager.LoadScene(firstLevelName);
+    }
+    
+    // Выход из игры
+    public void QuitGame()
+    {
+        #if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+        #else
+            Application.Quit();
+        #endif
+    }
+    
+    // Загрузка любой сцены по имени
+    public void LoadScene(string sceneName)
+    {
+        SceneManager.LoadScene(sceneName);
+    }
+    
+    // Загрузка сцены по индексу
+    public void LoadSceneByIndex(int sceneIndex)
+    {
+        SceneManager.LoadScene(sceneIndex);
+    }
+}
