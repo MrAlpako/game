@@ -1,89 +1,106 @@
+// ============================================================
+// 3. DialogueManager.cs
+// Назначение: Управление диалоговым окном (печать текста, кнопка "Далее")
+// ============================================================
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections;
 
 public class DialogueManager : MonoBehaviour
 {
     [Header("UI элементы")]
-    [SerializeField] private GameObject dialoguePanel;
-    [SerializeField] private TMP_Text dialogueText;
-    [SerializeField] private Button nextButton;
-
+    [SerializeField] private GameObject dialoguePanel;   // Панель диалога (появляется при разговоре)
+    [SerializeField] private TMP_Text dialogueText;      // Текстовое поле для вывода диалога
+    [SerializeField] private Button nextButton;          // Кнопка "Далее"
+    
     [Header("Настройки")]
-    [SerializeField] private float typingSpeed = 0.05f;
-
-    private string[] currentLines;
-    private int currentLineIndex = 0;
-    private bool isTyping = false;
-    private DialogueTrigger currentTrigger;
-
+    [SerializeField] private float typingSpeed = 0.05f;  // Задержка между буквами (секунды)
+    
+    private string[] currentLines;     // Текущий массив строк диалога
+    private int currentLineIndex = 0;  // Индекс текущей строки (0, 1, 2...)
+    private bool isTyping = false;     // Идёт ли сейчас анимация печати
+    private DialogueTrigger currentTrigger; // Ссылка на NPC, который начал диалог
+    
     void Start()
     {
+        // Изначально диалоговое окно скрыто
         if (dialoguePanel != null)
             dialoguePanel.SetActive(false);
-
+        
+        // Подписываемся на нажатие кнопки "Далее"
         if (nextButton != null)
             nextButton.onClick.AddListener(DisplayNextLine);
     }
-
+    
+    // Запуск диалога (вызывается из DialogueTrigger)
     public void StartDialogue(string[] lines, DialogueTrigger trigger)
     {
         currentTrigger = trigger;
         currentLines = lines;
         currentLineIndex = 0;
-
+        
+        // Показываем диалоговое окно
         if (dialoguePanel != null)
             dialoguePanel.SetActive(true);
-
+        
+        // Останавливаем предыдущую анимацию (если была)
         StopAllCoroutines();
+        
+        // Запускаем печать первой строки
         StartCoroutine(TypeLine(lines[currentLineIndex]));
     }
-
-    System.Collections.IEnumerator TypeLine(string line)
+    
+    // Корутина печати текста по буквам
+    IEnumerator TypeLine(string line)
     {
         isTyping = true;
-
-        if (dialogueText != null)
-            dialogueText.text = "";
-
+        dialogueText.text = "";
+        
+        // Проходим по каждому символу в строке
         foreach (char c in line.ToCharArray())
         {
-            if (dialogueText != null)
-                dialogueText.text += c;
-            yield return new WaitForSeconds(typingSpeed);
+            dialogueText.text += c;                     // Добавляем один символ
+            yield return new WaitForSeconds(typingSpeed); // Ждём указанное время
         }
-
+        
         isTyping = false;
     }
-
+    
+    // Обработка нажатия кнопки "Далее"
     public void DisplayNextLine()
     {
+        // Случай 1: Текст ещё печатается -> прерываем и выводим всю строку сразу
         if (isTyping)
         {
             StopAllCoroutines();
-            if (dialogueText != null)
-                dialogueText.text = currentLines[currentLineIndex];
+            dialogueText.text = currentLines[currentLineIndex];
             isTyping = false;
             return;
         }
-
+        
+        // Случай 2: Текст напечатан -> переходим к следующей строке
         currentLineIndex++;
-
+        
         if (currentLineIndex < currentLines.Length)
         {
+            // Есть ещё строки -> печатаем следующую
             StartCoroutine(TypeLine(currentLines[currentLineIndex]));
         }
         else
         {
+            // Строки закончились -> закрываем диалог
             EndDialogue();
         }
     }
-
+    
+    // Закрытие диалогового окна
     public void EndDialogue()
     {
         if (dialoguePanel != null)
             dialoguePanel.SetActive(false);
-
+        
+        // Уведомляем NPC, что диалог завершён
         if (currentTrigger != null)
         {
             currentTrigger.EndDialogue();
