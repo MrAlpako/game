@@ -1,37 +1,39 @@
+// ============================================================
+// 2. CameraResolution.cs
+// Назначение: Адаптация размера камеры под разные соотношения сторон экрана
+// ============================================================
 using UnityEngine;
 
 public class CameraResolution : MonoBehaviour
 {
     [Header("Настройки")]
-    [SerializeField] private float targetWidth = 20f; // Желаемая ширина обзора в игровых единицах
-    [SerializeField] private float targetHeight = 11f; // Желаемая высота обзора
-
+    [SerializeField] private float targetWidth = 20f;   // Желаемая ширина обзора в игровых единицах
+    [SerializeField] private float targetHeight = 11f;  // Желаемая высота обзора в игровых единицах
+    
     private Camera cam;
-
+    
     void Start()
     {
         cam = GetComponent<Camera>();
         AdjustCameraSize();
     }
-
+    
     void AdjustCameraSize()
     {
         // Текущее соотношение сторон экрана
         float screenRatio = Screen.width / (float)Screen.height;
         float targetRatio = targetWidth / targetHeight;
-
+        
         if (screenRatio >= targetRatio)
         {
             // Экран шире целевого - подгоняем по высоте
             cam.orthographicSize = targetHeight / 2f;
-            Debug.Log($"Камера подогнана по высоте: {cam.orthographicSize}");
         }
         else
         {
             // Экран уже целевого - подгоняем по ширине
             float difference = targetRatio / screenRatio;
             cam.orthographicSize = (targetHeight / 2f) * difference;
-            Debug.Log($"Камера подогнана по ширине: {cam.orthographicSize}");
         }
     }
 }
