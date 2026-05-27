@@ -1,30 +1,31 @@
+// ============================================================
+// 1. CameraFollow.cs
+// Назначение: Камера, которая следит за игроком с плавным отставанием
+// ============================================================
 using UnityEngine;
 
 public class CameraFollow : MonoBehaviour
 {
     [Header("Цель")]
-    [SerializeField] private Transform target; // Игрок
-
+    [SerializeField] private Transform target; // Игрок, за которым следит камера
+    
     [Header("Настройки следования")]
-    [SerializeField] private float smoothSpeed = 0.125f; // Плавность движения
-    [SerializeField] private Vector3 offset = new Vector3(0, 0, -10); // Смещение камеры
-
+    [SerializeField] private float smoothSpeed = 0.125f; // Плавность движения (чем меньше, тем плавнее)
+    [SerializeField] private Vector3 offset = new Vector3(0, 0, -10); // Смещение камеры относительно игрока
+    
     [Header("Границы уровня")]
-    [SerializeField] private bool useBounds = false;
-    [SerializeField] private float minX = -10f;
-    [SerializeField] private float maxX = 10f;
-    [SerializeField] private float minY = -10f;
-    [SerializeField] private float maxY = 10f;
-
+    [SerializeField] private bool useBounds = false; // Включить ограничения по границам
+    [SerializeField] private float minX = -10f; // Левая граница
+    [SerializeField] private float maxX = 10f;  // Правая граница
+    [SerializeField] private float minY = -10f; // Нижняя граница
+    [SerializeField] private float maxY = 10f;  // Верхняя граница
+    
     [Header("Опции следования")]
-    [SerializeField] private bool followX = true;
-    [SerializeField] private bool followY = true;
-
-    [Header("Сглаживание при телепортации")]
-    [SerializeField] private bool useUnlimitedBounds = false;
-
-    private Vector3 velocity = Vector3.zero;
-
+    [SerializeField] private bool followX = true; // Следовать по горизонтали
+    [SerializeField] private bool followY = true; // Следовать по вертикали
+    
+    private Vector3 velocity = Vector3.zero; // Для SmoothDamp (хранит скорость камеры между кадрами)
+    
     void Start()
     {
         // Если цель не назначена, пытаемся найти игрока автоматически
@@ -36,47 +37,46 @@ public class CameraFollow : MonoBehaviour
             else
                 Debug.LogError("CameraFollow: цель (Player) не назначена и не найдена на сцене!");
         }
-
-        // Устанавливаем начальную позицию
+        
+        // Устанавливаем начальную позицию камеры
         if (target != null)
         {
             transform.position = target.position + offset;
         }
     }
-
+    
     void LateUpdate()
     {
         if (target == null) return;
-
-        // Базовая желаемая позиция
+        
+        // Базовая желаемая позиция (позиция игрока + смещение)
         Vector3 desiredPosition = target.position + offset;
-
-        // Применяем ограничения по осям
+        
+        // Применяем ограничения по осям (если отключено следование по оси)
         if (!followX)
             desiredPosition.x = transform.position.x;
-
         if (!followY)
             desiredPosition.y = transform.position.y;
-
+        
         // Применяем границы уровня
         if (useBounds)
         {
             desiredPosition.x = Mathf.Clamp(desiredPosition.x, minX, maxX);
             desiredPosition.y = Mathf.Clamp(desiredPosition.y, minY, maxY);
         }
-
-        // Плавное движение (SmoothDamp дает более естественное движение)
+        
+        // Плавное движение (SmoothDamp дает более естественное движение с инерцией)
         Vector3 smoothedPosition = Vector3.SmoothDamp(transform.position, desiredPosition, ref velocity, smoothSpeed);
         transform.position = smoothedPosition;
     }
-
-    // Методы для изменения настроек из других скриптов
-
+    
+    // Метод для смены цели (например, при респавне)
     public void SetTarget(Transform newTarget)
     {
         target = newTarget;
     }
-
+    
+    // Установка границ уровня
     public void SetBounds(float newMinX, float newMaxX, float newMinY, float newMaxY)
     {
         useBounds = true;
@@ -85,12 +85,13 @@ public class CameraFollow : MonoBehaviour
         minY = newMinY;
         maxY = newMaxY;
     }
-
+    
+    // Отключение границ
     public void DisableBounds()
     {
         useBounds = false;
     }
-
+    
     // Мгновенное перемещение камеры к игроку (полезно при респауне)
     public void TeleportToTarget()
     {
@@ -99,8 +100,8 @@ public class CameraFollow : MonoBehaviour
             transform.position = target.position + offset;
         }
     }
-
-    // Визуализация границ в редакторе
+    
+    // Визуализация границ в редакторе (для удобства настройки)
     void OnDrawGizmosSelected()
     {
         if (useBounds)
