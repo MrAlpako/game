@@ -1,0 +1,201 @@
+// ============================================================
+// 7. InventoryManager.cs
+// Назначение: Управление инвентарём (3 слота, добавление/удаление предметов)
+// ============================================================
+using UnityEngine;
+using System.Collections.Generic;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+
+public class InventoryManager : MonoBehaviour
+{
+    [Header("Настройки")]
+    [SerializeField] private int inventorySize = 3; // Размер инвентаря (3 слота)
+    
+    [Header("UI элементы")]
+    [SerializeField] private List<Image> slotIcons;      // Иконки слотов
+    [SerializeField] private List<GameObject> slotObjects; // Объекты слотов (для кликов)
+    
+    private List<InventoryItem> items = new List<InventoryItem>(); // Список предметов
+    private int currentSelectedSlot = -1; // Текущий выбранный слот (-1 = ничего не выбрано)
+    private bool isTransferBlocked = false; // Блокировка передачи (баг B-3)
+    
+    // Класс предмета инвентаря
+    [System.Serializable]
+    public class InventoryItem
+    {
+        public string itemName;
+        public Sprite itemIcon;
+        public int itemID;
+        public bool isQuestItem;
+        
+        public InventoryItem(string name, Sprite icon, int id, bool questItem)
+        {
+            itemName = name;
+            itemIcon = icon;
+            itemID = id;
+            isQuestItem = questItem;
+        }
+    }
+    
+    void Start()
+    {
+        // Инициализация пустых слотов
+        for (int i = 0; i < inventorySize; i++)
+        {
+            items.Add(null);
+        }
+        
+        // Назначение обработчиков кликов на слоты
+        for (int i = 0; i < slotObjects.Count; i++)
+        {
+            if (slotObjects[i] != null)
+            {
+                int slotIndex = i;
+                EventTrigger trigger = slotObjects[i].GetComponent<EventTrigger>();
+                if (trigger == null)
+                    trigger = slotObjects[i].AddComponent<EventTrigger>();
+                
+                EventTrigger.Entry entry = new EventTrigger.Entry();
+                entry.eventID = EventTriggerType.PointerClick;
+                entry.callback.AddListener((data) => { OnSlotClicked(slotIndex); });
+                trigger.triggers.Add(entry);
+            }
+        }
+        
+        UpdateInventoryUI();
+    }
+    
+    // Обработка клика по слоту инвентаря
+    void OnSlotClicked(int slotIndex)
+    {
+        if (isTransferBlocked) return; // Блокировка (баг B-3)
+        if (slotIndex < 0 || slotIndex >= items.Count) return;
+        if (items[slotIndex] == null) return; // Слот пуст
+        
+        // Подсветка выбранного слота
+        if (currentSelectedSlot != -1 && currentSelectedSlot < slotObjects.Count)
+        {
+            Image prevSlotImage = slotObjects[currentSelectedSlot].GetComponent<Image>();
+            if (prevSlotImage != null) prevSlotImage.color = Color.white;
+        }
+        
+        currentSelectedSlot = slotIndex;
+        Image currentSlotImage = slotObjects[currentSelectedSlot].GetComponent<Image>();
+        if (currentSlotImage != null) currentSlotImage.color = Color.yellow;
+        
+        // Поиск ближайшего NPC для передачи предмета
+        QuestGiver[] questGivers = FindObjectsOfType<QuestGiver>();
+        bool itemTransferred = false;
+        
+        foreach (QuestGiver qg in questGivers)
+        {
+            float distance = Vector2.Distance(transform.position, qg.transform.position);
+            if (distance < 5f) // Радиус взаимодействия с NPC
+            {
+                if (qg.TryGiveQuestItem(items[slotIndex].itemID))
+                {
+                    items[slotIndex] = null;
+                    itemTransferred = true;
+                    break;
+                }
+            }
+        }
+        
+        if (itemTransferred)
+        {
+            isTransferBlocked = true;
+            Invoke("UnblockTransfer", 0.5f); // Разблокировка через 0.5 сек (баг B-3)
+            
+            if (currentSlotImage != null) currentSlotImage.color = Color.white;
+            currentSelectedSlot = -1;
+            UpdateInventoryUI();
+        }
+    }
+    
+    private void UnblockTransfer()
+    {
+        isTransferBlocked = false;
+    }
+    
+    // Добавление предмета в инвентарь
+    public bool AddItem(InventoryItem newItem)
+    {
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (items[i] == null)
+            {
+                items[i] = newItem;
+                UpdateInventoryUI();
+                
+                // Оповещение квестовой системы
+                QuestGiver[] questGivers = FindObjectsOfType<QuestGiver>();
+                foreach (QuestGiver qg in questGivers)
+                {
+                    qg.CheckQuestStatus();
+                }
+                return true;
+            }
+        }
+        return false; // Инвентарь полон
+    }
+    
+    // Проверка наличия предмета по ID
+    public bool HasQuestItem(int itemID)
+    {
+        foreach (var item in items)
+        {
+            if (item != null && item.itemID == itemID)
+                return true;
+        }
+        return false;
+    }
+    
+    // Удаление предмета по ID
+    public bool RemoveItemByID(int itemID)
+    {
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (items[i] != null && items[i].itemID == itemID)
+            {
+                items[i] = null;
+                UpdateInventoryUI();
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // Обновление UI инвентаря
+    private void UpdateInventoryUI()
+    {
+        for (int i = 0; i < inventorySize; i++)
+        {
+            if (slotIcons[i] == null) continue;
+            
+            if (items[i] != null)
+            {
+                slotIcons[i].sprite = items[i].itemIcon;
+                slotIcons[i].color = Color.white;
+                slotIcons[i].preserveAspect = true;
+            }
+            else
+            {
+                slotIcons[i].sprite = null;
+                slotIcons[i].color = new Color(1, 1, 1, 0); // Прозрачный (пустой слот)
+            }
+        }
+    }
+    
+    // Диагностика инвентаря (для отладки)
+    public void DebugInventory()
+    {
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (items[i] != null)
+                Debug.Log($"Слот {i}: {items[i].itemName} (ID:{items[i].itemID})");
+            else
+                Debug.Log($"Слот {i}: пуст");
+        }
+    }
+}
