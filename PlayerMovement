@@ -1,0 +1,210 @@
+// 14. PlayerMovement.cs
+// Назначение: Управление персонажем (движение, прыжки, платформы)
+// ============================================================
+using UnityEngine;
+
+public class PlayerMovement : MonoBehaviour
+{
+    [Header("=== КОМПОНЕНТЫ ===")]
+    private Rigidbody2D rb;
+    private Animator animator;
+    
+    [Header("=== НАСТРОЙКИ ДВИЖЕНИЯ ===")]
+    [SerializeField] private float speed = 5f;
+    [SerializeField] private float jumpForce = 10f;
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] private float checkRadius = 0.2f;
+    [SerializeField] private LayerMask groundLayer;
+    
+    [Header("=== ДВОЙНОЙ ПРЫЖОК ===")]
+    [SerializeField] private int maxJumps = 2;
+    [SerializeField] private float firstJumpForce = 12f;
+    [SerializeField] private float secondJumpForce = 9f;
+    private int jumpsRemaining = 0;
+    
+    [Header("=== АНИМАЦИЯ ===")]
+    [SerializeField] private string speedXParam = "SpeedX";
+    [SerializeField] private string isGroundedParam = "IsGrounded";
+    [SerializeField] private string jumpParam = "Jump";
+    [SerializeField] private string doubleJumpParam = "DoubleJump";
+    
+    private float moveInput;
+    private bool isGrounded;
+    private bool facingRight = true;
+    private GameObject currentPlatform;
+    private bool isOnPlatform = false;
+    private bool isJumpingFromPlatform = false; // Флаг для исправления бага B-1
+    
+    void Start()
+    {
+        rb = GetComponent<Rigidbody2D>();
+        animator = GetComponent<Animator>();
+        jumpsRemaining = maxJumps;
+        
+        // Настройки производительности
+        Application.targetFrameRate = 60;
+        QualitySettings.vSyncCount = 0;
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate; // Плавность движения
+    }
+    
+    void Update()
+    {
+        CheckGrounded();
+        
+        // Восстанавливаем количество прыжков, если на земле или на платформе
+        if (isGrounded || isOnPlatform)
+        {
+            jumpsRemaining = maxJumps;
+        }
+    }
+    
+    void FixedUpdate()
+    {
+        if (isOnPlatform && currentPlatform != null && !isJumpingFromPlatform)
+        {
+            // На платформе — локальное движение (без физики)
+            transform.localPosition += new Vector3(moveInput * speed * Time.fixedDeltaTime, 0, 0);
+        }
+        else
+        {
+            // Обычное движение через физику
+            rb.velocity = new Vector2(moveInput * speed, rb.velocity.y);
+        }
+        
+        // Анимация
+        if (animator != null)
+        {
+            float currentSpeed = isOnPlatform ? Mathf.Abs(moveInput) : Mathf.Abs(rb.velocity.x);
+            animator.SetFloat(speedXParam, currentSpeed);
+            animator.SetBool(isGroundedParam, isGrounded || isOnPlatform);
+        }
+    }
+    
+    // Проверка стены (для игнорирования при проверке земли)
+    bool IsWall(GameObject obj)
+    {
+        return obj.layer == LayerMask.NameToLayer("Wall");
+    }
+    
+    // Проверка касания земли и взаимодействие с платформами
+    void CheckGrounded()
+    {
+        Collider2D[] colliders = Physics2D.OverlapCircleAll(groundCheck.position, checkRadius, groundLayer);
+        isGrounded = false;
+        GameObject newPlatform = null;
+        
+        foreach (Collider2D col in colliders)
+        {
+            if (IsWall(col.gameObject)) continue; // Игнорируем стены (баг B-4)
+            isGrounded = true;
+            if (col.CompareTag("MovingPlatform") && newPlatform == null)
+            {
+                newPlatform = col.gameObject;
+            }
+            break;
+        }
+        
+        // Прикрепляемся к платформе
+        if (newPlatform != null && currentPlatform != newPlatform && !isJumpingFromPlatform)
+        {
+            if (transform.parent != null)
+            {
+                transform.SetParent(null);
+                rb.isKinematic = false;
+                rb.simulated = true;
+            }
+            currentPlatform = newPlatform;
+            transform.SetParent(currentPlatform.transform);
+            rb.isKinematic = true;
+            rb.simulated = false;
+            isOnPlatform = true;
+        }
+        
+        // Открепляемся от платформы
+        if (!isGrounded && isOnPlatform && !isJumpingFromPlatform)
+        {
+            transform.SetParent(null);
+            rb.isKinematic = false;
+            rb.simulated = true;
+            isOnPlatform = false;
+            currentPlatform = null;
+        }
+        
+        // Сбрасываем флаг прыжка после отрыва
+        if (isJumpingFromPlatform && !isOnPlatform && !isGrounded)
+        {
+            isJumpingFromPlatform = false;
+        }
+    }
+    
+    // Управление движением
+    public void MoveLeft()
+    {
+        moveInput = -1f;
+        if (facingRight) Flip();
+    }
+    
+    public void MoveRight()
+    {
+        moveInput = 1f;
+        if (!facingRight) Flip();
+    }
+    
+    public void StopMove()
+    {
+        moveInput = 0f;
+    }
+    
+    // Прыжок (основная логика, исправление бага B-1)
+    public void Jump()
+    {
+        if (isGrounded || isOnPlatform || jumpsRemaining > 0)
+        {
+            float currentJumpForce = (jumpsRemaining == maxJumps) ? firstJumpForce : secondJumpForce;
+            Vector3 jumpPosition = transform.position;
+            
+            // Сначала прыжок, потом открепление (баг B-1)
+            rb.velocity = new Vector2(rb.velocity.x, currentJumpForce);
+            
+            if (isOnPlatform)
+            {
+                isJumpingFromPlatform = true;
+                transform.SetParent(null);
+                rb.isKinematic = false;
+                rb.simulated = true;
+                isOnPlatform = false;
+                currentPlatform = null;
+                transform.position = jumpPosition;
+            }
+            
+            if (jumpsRemaining > 0) jumpsRemaining--;
+            
+            if (animator != null)
+            {
+                if (jumpsRemaining == maxJumps - 1)
+                    animator.SetTrigger(jumpParam);
+                else
+                    animator.SetTrigger(doubleJumpParam);
+            }
+        }
+    }
+    
+    // Разворот спрайта
+    private void Flip()
+    {
+        facingRight = !facingRight;
+        Vector3 scaler = transform.localScale;
+        scaler.x *= -1;
+        transform.localScale = scaler;
+    }
+    
+    // Визуализация зоны проверки земли в редакторе
+    void OnDrawGizmosSelected()
+    {
+        if (groundCheck != null)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(groundCheck.position, checkRadius);
+        }
+    }
+}
