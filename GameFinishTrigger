@@ -1,0 +1,37 @@
+// ============================================================
+// 6. GameFinishTrigger.cs
+// Назначение: Триггер финиша уровня (переход на экран победы)
+// ============================================================
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class GameFinishTrigger : MonoBehaviour
+{
+    [Header("Настройки")]
+    [SerializeField] private string completeSceneName = "GameComplete"; // Сцена экрана победы
+    
+    // Подписка на событие завершения квеста (паттерн Observer)
+    void Start()
+    {
+        QuestGiver questGiver = FindObjectOfType<QuestGiver>();
+        if (questGiver != null)
+        {
+            questGiver.OnQuestCompleted += EnableTrigger;
+        }
+    }
+    
+    // При касании игрока — переход на экран победы
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            SceneManager.LoadScene(completeSceneName);
+        }
+    }
+    
+    // Активация триггера после завершения квеста
+    private void EnableTrigger()
+    {
+        gameObject.SetActive(true);
+    }
+}
