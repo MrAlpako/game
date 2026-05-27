@@ -1,0 +1,28 @@
+// ============================================================
+// 5. GameComplete.cs
+// Назначение: Экран завершения игры (кнопки возврата и выхода)
+// ============================================================
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class GameComplete : MonoBehaviour
+{
+    [Header("Настройки")]
+    [SerializeField] private string mainMenuScene = "MainMenu"; // Имя сцены главного меню
+    
+    // Возврат в главное меню
+    public void GoToMainMenu()
+    {
+        SceneManager.LoadScene(mainMenuScene);
+    }
+    
+    // Выход из игры (работает и в редакторе, и на устройстве)
+    public void QuitGame()
+    {
+        #if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+        #else
+            Application.Quit();
+        #endif
+    }
+}
