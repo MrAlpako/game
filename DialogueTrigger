@@ -1,78 +1,62 @@
+// ============================================================
+// 4. DialogueTrigger.cs
+// Назначение: Обнаружение игрока рядом с NPC и запуск диалога
+// ============================================================
 using UnityEngine;
 
 public class DialogueTrigger : MonoBehaviour
 {
-    [Header("Компоненты")]
-    private DialogueManager dialogueManager;
-
     [Header("Настройки диалога")]
-    [SerializeField][TextArea(2, 4)] private string[] dialogueLines;
-    [SerializeField] private float triggerRadius = 3f;
-
+    [SerializeField][TextArea(2, 4)] private string[] dialogueLines; // Строки диалога
+    [SerializeField] private float triggerRadius = 3f;               // Радиус обнаружения игрока
+    
     [Header("UI элементы")]
-    [SerializeField] private GameObject dialogueIcon;
-
+    [SerializeField] private GameObject dialogueIcon;                // Иконка диалога (облачко)
+    
     [Header("Слои")]
-    [SerializeField] private LayerMask playerLayer;
-
+    [SerializeField] private LayerMask playerLayer;                  // Слой игрока
+    
     [Header("Режим активации")]
-    [SerializeField] private bool autoStartDialogue = false;
-
+    [SerializeField] private bool autoStartDialogue = false;         // Авто-запуск диалога (без иконки)
+    
+    private DialogueManager dialogueManager;
     private bool playerInRange = false;
     private bool dialogueActive = false;
     private bool dialogueShownForThisEnter = false;
-
+    
     void Start()
     {
-        Debug.Log($"=== DialogueTrigger.Start на {gameObject.name} ===");
-        Debug.Log($"Режим: {(autoStartDialogue ? "Автоматический" : "По иконке")}");
-
         dialogueManager = FindObjectOfType<DialogueManager>();
-
-        if (dialogueManager == null)
-        {
-            Debug.LogError("DialogueManager не найден на сцене!");
-        }
-        else
-        {
-            Debug.Log("DialogueManager найден");
-        }
-
+        
         if (dialogueIcon == null)
         {
             Debug.LogError($"dialogueIcon не назначен на {gameObject.name}!");
         }
         else
         {
-            dialogueIcon.SetActive(false);
-            Debug.Log("Иконка скрыта при старте");
+            dialogueIcon.SetActive(false); // Иконка скрыта по умолчанию
         }
-
-        Debug.Log($"Trigger Radius: {triggerRadius}");
-        Debug.Log($"Player Layer: {playerLayer.value}");
     }
-
+    
     void Update()
     {
         CheckPlayerDistance();
-
+        
         if (playerInRange && !dialogueActive)
         {
-            // Режим 1: Автоматический диалог
+            // Режим 1: Автоматический диалог (без иконки)
             if (autoStartDialogue && !dialogueShownForThisEnter)
             {
-                Debug.Log($"Автоматический запуск диалога для {gameObject.name}");
                 StartDialogue();
                 dialogueShownForThisEnter = true;
             }
-
+            
             // Режим 2: Диалог по иконке
             if (!autoStartDialogue)
             {
-                // Показываем иконку с принудительным обновлением
                 ShowIcon();
-
-                // Проверяем нажатие на иконку
+                
+                // Проверка нажатия на иконку
                 if (Input.touchCount > 0 || Input.GetMouseButtonDown(0))
                 {
                     CheckIconTap();
@@ -81,17 +65,15 @@ public class DialogueTrigger : MonoBehaviour
         }
         else if (!playerInRange)
         {
-            // Прячем иконку если нужно
+            // Игрок ушёл из зоны -> прячем иконку
             if (dialogueIcon != null && dialogueIcon.activeSelf)
             {
                 dialogueIcon.SetActive(false);
-                Debug.Log($"Иконка скрыта для {gameObject.name} (игрок ушел)");
             }
-
-            // Закрываем диалог если игрок ушел
+            
+            // Закрываем диалог, если он был открыт
             if (dialogueActive)
             {
-                Debug.Log($"Игрок ушел, закрываем диалог для {gameObject.name}");
                 if (dialogueManager != null)
                 {
                     dialogueManager.EndDialogue();
@@ -101,72 +83,32 @@ public class DialogueTrigger : MonoBehaviour
             }
         }
     }
-
-    // НОВЫЙ МЕТОД: Показ иконки с принудительным обновлением Canvas
-    void ShowIcon()
-    {
-        if (dialogueIcon == null) return;
-
-        // Если иконка уже активна, ничего не делаем
-        if (dialogueIcon.activeSelf) return;
-
-        Debug.Log($"Попытка показать иконку для {gameObject.name}");
-
-        // Активируем иконку
-        dialogueIcon.SetActive(true);
-
-        // ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ CANVAS
-        Canvas canvas = dialogueIcon.GetComponentInParent<Canvas>();
-        if (canvas != null)
-        {
-            // Отключаем и включаем Canvas для принудительной перерисовки
-            canvas.enabled = false;
-            canvas.enabled = true;
-            Debug.Log($"Canvas принудительно обновлен для иконки {gameObject.name}");
-        }
-        else
-        {
-            Debug.LogWarning($"Canvas не найден для иконки {gameObject.name}");
-        }
-
-        Debug.Log($"Иконка показана для {gameObject.name} с принудительным обновлением");
-    }
-
+    
+    // Проверка расстояния до игрока
     void CheckPlayerDistance()
     {
         Collider2D[] colliders = Physics2D.OverlapCircleAll(transform.position, triggerRadius, playerLayer);
-        bool wasInRange = playerInRange;
         playerInRange = colliders.Length > 0;
-
-        if (playerInRange && !wasInRange)
+    }
+    
+    // Показ иконки с принудительным обновлением Canvas (фикс бага B-2 на Pixel 4a)
+    void ShowIcon()
+    {
+        if (dialogueIcon == null) return;
+        if (dialogueIcon.activeSelf) return;
+        
+        dialogueIcon.SetActive(true);
+        
+        // Принудительное обновление Canvas (баг B-2)
+        Canvas canvas = dialogueIcon.GetComponentInParent<Canvas>();
+        if (canvas != null)
         {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-            {
-                float distance = Vector2.Distance(transform.position, player.transform.position);
-                Debug.Log($"=== NPC {gameObject.name}: Игрок ВОШЕЛ в радиус ===");
-                Debug.Log($"  Радиус: {triggerRadius}");
-                Debug.Log($"  Фактическое расстояние: {distance}");
-                Debug.Log($"  Позиция игрока: {player.transform.position}");
-                Debug.Log($"  Позиция NPC: {transform.position}");
-                Debug.Log($"  Разница по Y: {Mathf.Abs(transform.position.y - player.transform.position.y)}");
-            }
-        }
-        else if (!playerInRange && wasInRange)
-        {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-            {
-                float distance = Vector2.Distance(transform.position, player.transform.position);
-                Debug.Log($"=== NPC {gameObject.name}: Игрок ВЫШЕЛ из радиуса ===");
-                Debug.Log($"  Установленный радиус: {triggerRadius}");
-                Debug.Log($"  Фактическое расстояние: {distance}");
-                Debug.Log($"  Позиция игрока: {player.transform.position}");
-                Debug.Log($"  Позиция NPC: {transform.position}");
-            }
+            canvas.enabled = false;
+            canvas.enabled = true;
         }
     }
-
+    
+    // Проверка нажатия на иконку
     void CheckIconTap()
     {
         if (Input.touchCount > 0)
@@ -174,90 +116,69 @@ public class DialogueTrigger : MonoBehaviour
             Touch touch = Input.GetTouch(0);
             if (touch.phase == TouchPhase.Began && IsPointerOverUIObject(touch.position))
             {
-                Debug.Log($"NPC {gameObject.name}: Нажатие на иконку (тач)");
                 StartDialogue();
             }
         }
         else if (Input.GetMouseButtonDown(0) && IsPointerOverUIObject(Input.mousePosition))
         {
-            Debug.Log($"NPC {gameObject.name}: Нажатие на иконку (мышь)");
             StartDialogue();
         }
     }
-
+    
+    // Определение, попал ли клик/касание по иконке
     bool IsPointerOverUIObject(Vector2 screenPosition)
     {
-        if (dialogueIcon == null)
-        {
-            return false;
-        }
-
+        if (dialogueIcon == null) return false;
+        
         RectTransform rectTransform = dialogueIcon.GetComponent<RectTransform>();
-        if (rectTransform == null)
-        {
-            return false;
-        }
-
+        if (rectTransform == null) return false;
+        
         Vector2 localPoint;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            rectTransform, screenPosition, null, out localPoint);
-
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, screenPosition, null, out localPoint);
         return rectTransform.rect.Contains(localPoint);
     }
-
+    
+    // Запуск диалога
     public void StartDialogue()
     {
-        Debug.Log($"=== DialogueTrigger.StartDialogue на {gameObject.name} ===");
-
-        if (dialogueManager == null)
-        {
-            Debug.LogError("dialogueManager = null!");
-            return;
-        }
-
-        if (dialogueActive)
-        {
-            Debug.Log("Диалог уже активен");
-            return;
-        }
-
-        if (dialogueLines == null || dialogueLines.Length == 0)
-        {
-            Debug.LogError("dialogueLines пуст!");
-            return;
-        }
-
+        if (dialogueManager == null) return;
+        if (dialogueActive) return;
+        if (dialogueLines == null || dialogueLines.Length == 0) return;
+        
         dialogueActive = true;
-        Debug.Log($"dialogueActive = true, строк диалога: {dialogueLines.Length}");
-
+        
         if (dialogueIcon != null)
-        {
             dialogueIcon.SetActive(false);
-            Debug.Log("Иконка скрыта");
-        }
-
+        
         dialogueManager.StartDialogue(dialogueLines, this);
-
+        
+        // Уведомляем квестовую систему (если есть)
         QuestGiver questGiver = GetComponent<QuestGiver>();
         if (questGiver != null)
         {
-            Debug.Log("Уведомляем QuestGiver о начале диалога");
             questGiver.OnDialogueStarted();
         }
     }
-
+    
+    // Завершение диалога
     public void EndDialogue()
     {
-        Debug.Log($"NPC {gameObject.name}: Диалог завершен");
         dialogueActive = false;
-
+        
+        // Показываем иконку снова, если игрок ещё в зоне
         if (!autoStartDialogue && playerInRange && dialogueIcon != null)
         {
-            // Используем тот же метод ShowIcon для показа иконки после диалога
             ShowIcon();
         }
     }
-
+    
+    // Публичный метод для обновления текста диалога (исправление бага B-5)
+    public void UpdateDialogueLines(string[] newLines)
+    {
+        dialogueLines = newLines;
+    }
+    
+    // Визуализация зоны диалога в редакторе
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;
