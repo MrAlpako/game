@@ -1,0 +1,114 @@
+using UnityEngine;
+
+public class CameraFollow : MonoBehaviour
+{
+    [Header("Цель")]
+    [SerializeField] private Transform target; // Игрок
+
+    [Header("Настройки следования")]
+    [SerializeField] private float smoothSpeed = 0.125f; // Плавность движения
+    [SerializeField] private Vector3 offset = new Vector3(0, 0, -10); // Смещение камеры
+
+    [Header("Границы уровня")]
+    [SerializeField] private bool useBounds = false;
+    [SerializeField] private float minX = -10f;
+    [SerializeField] private float maxX = 10f;
+    [SerializeField] private float minY = -10f;
+    [SerializeField] private float maxY = 10f;
+
+    [Header("Опции следования")]
+    [SerializeField] private bool followX = true;
+    [SerializeField] private bool followY = true;
+
+    [Header("Сглаживание при телепортации")]
+    [SerializeField] private bool useUnlimitedBounds = false;
+
+    private Vector3 velocity = Vector3.zero;
+
+    void Start()
+    {
+        // Если цель не назначена, пытаемся найти игрока автоматически
+        if (target == null)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+                target = player.transform;
+            else
+                Debug.LogError("CameraFollow: цель (Player) не назначена и не найдена на сцене!");
+        }
+
+        // Устанавливаем начальную позицию
+        if (target != null)
+        {
+            transform.position = target.position + offset;
+        }
+    }
+
+    void LateUpdate()
+    {
+        if (target == null) return;
+
+        // Базовая желаемая позиция
+        Vector3 desiredPosition = target.position + offset;
+
+        // Применяем ограничения по осям
+        if (!followX)
+            desiredPosition.x = transform.position.x;
+
+        if (!followY)
+            desiredPosition.y = transform.position.y;
+
+        // Применяем границы уровня
+        if (useBounds)
+        {
+            desiredPosition.x = Mathf.Clamp(desiredPosition.x, minX, maxX);
+            desiredPosition.y = Mathf.Clamp(desiredPosition.y, minY, maxY);
+        }
+
+        // Плавное движение (SmoothDamp дает более естественное движение)
+        Vector3 smoothedPosition = Vector3.SmoothDamp(transform.position, desiredPosition, ref velocity, smoothSpeed);
+        transform.position = smoothedPosition;
+    }
+
+    // Методы для изменения настроек из других скриптов
+
+    public void SetTarget(Transform newTarget)
+    {
+        target = newTarget;
+    }
+
+    public void SetBounds(float newMinX, float newMaxX, float newMinY, float newMaxY)
+    {
+        useBounds = true;
+        minX = newMinX;
+        maxX = newMaxX;
+        minY = newMinY;
+        maxY = newMaxY;
+    }
+
+    public void DisableBounds()
+    {
+        useBounds = false;
+    }
+
+    // Мгновенное перемещение камеры к игроку (полезно при респауне)
+    public void TeleportToTarget()
+    {
+        if (target != null)
+        {
+            transform.position = target.position + offset;
+        }
+    }
+
+    // Визуализация границ в редакторе
+    void OnDrawGizmosSelected()
+    {
+        if (useBounds)
+        {
+            Gizmos.color = Color.cyan;
+            Vector3 center = new Vector3((minX + maxX) / 2, (minY + maxY) / 2, 0);
+            Vector3 size = new Vector3(maxX - minX, maxY - minY, 1);
+            Gizmos.DrawWireCube(center, size);
+        }
+    }
+}
