@@ -1,0 +1,63 @@
+// ============================================================
+// 8. ItemPickup.cs
+// Назначение: Подбор предметов с земли (ключи, монеты)
+// ============================================================
+using UnityEngine;
+
+public class ItemPickup : MonoBehaviour
+{
+    [Header("Настройки предмета")]
+    [SerializeField] private string itemName = "Предмет";
+    [SerializeField] private Sprite itemIcon;
+    [SerializeField] private int itemID = 0;
+    [SerializeField] private bool isQuestItem = false;
+    
+    [Header("Настройки подбора")]
+    [SerializeField] private float pickupRadius = 2f;   // Радиус подбора
+    [SerializeField] private LayerMask playerLayer;     // Слой игрока
+    
+    private InventoryManager inventory;
+    
+    void Start()
+    {
+        inventory = FindObjectOfType<InventoryManager>();
+        
+        // Убеждаемся, что коллайдер работает как триггер
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null)
+        {
+            col.isTrigger = true;
+        }
+    }
+    
+    void Update()
+    {
+        // Проверка расстояния до игрока
+        Collider2D[] colliders = Physics2D.OverlapCircleAll(transform.position, pickupRadius, playerLayer);
+        if (colliders.Length > 0)
+        {
+            TryPickup();
+        }
+    }
+    
+    void TryPickup()
+    {
+        if (inventory == null) return;
+        
+        InventoryManager.InventoryItem item = new InventoryManager.InventoryItem(
+            itemName, itemIcon, itemID, isQuestItem
+        );
+        
+        if (inventory.AddItem(item))
+        {
+            Destroy(gameObject); // Предмет подобран — удаляем с уровня
+        }
+    }
+    
+    // Визуализация радиуса подбора в редакторе
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.green;
+        Gizmos.DrawWireSphere(transform.position, pickupRadius);
+    }
+}
