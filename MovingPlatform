@@ -1,0 +1,62 @@
+// ============================================================
+// 13. MovingPlatform.cs
+// Назначение: Движущиеся платформы (синусоидальное движение)
+// ============================================================
+using UnityEngine;
+
+public class MovingPlatform : MonoBehaviour
+{
+    [Header("=== НАСТРОЙКИ ДВИЖЕНИЯ ===")]
+    [SerializeField] private float moveSpeed = 2f;      // Скорость движения
+    [SerializeField] private float moveDistance = 3f;   // Расстояние движения
+    [SerializeField] private bool moveHorizontal = true; // true = горизонтально, false = вертикально
+    
+    private Vector2 startPos;
+    private Rigidbody2D rb;
+    
+    void Start()
+    {
+        rb = GetComponent<Rigidbody2D>();
+        rb.bodyType = RigidbodyType2D.Kinematic; // Kinematic — не реагирует на силы, но может двигаться
+        startPos = transform.position;
+    }
+    
+    void FixedUpdate()
+    {
+        if (moveHorizontal)
+        {
+            // Горизонтальное движение по синусоиде
+            float newX = startPos.x + Mathf.Sin(Time.time * moveSpeed) * moveDistance;
+            rb.MovePosition(new Vector2(newX, transform.position.y));
+        }
+        else
+        {
+            // Вертикальное движение по синусоиде
+            float newY = startPos.y + Mathf.Sin(Time.time * moveSpeed) * moveDistance;
+            rb.MovePosition(new Vector2(transform.position.x, newY));
+        }
+    }
+    
+    // Визуализация траектории движения в редакторе
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.cyan;
+        
+        if (moveHorizontal)
+        {
+            Vector3 start = new Vector3(startPos.x - moveDistance, transform.position.y, 0);
+            Vector3 end = new Vector3(startPos.x + moveDistance, transform.position.y, 0);
+            Gizmos.DrawLine(start, end);
+            Gizmos.DrawWireSphere(start, 0.2f);
+            Gizmos.DrawWireSphere(end, 0.2f);
+        }
+        else
+        {
+            Vector3 start = new Vector3(transform.position.x, startPos.y - moveDistance, 0);
+            Vector3 end = new Vector3(transform.position.x, startPos.y + moveDistance, 0);
+            Gizmos.DrawLine(start, end);
+            Gizmos.DrawWireSphere(start, 0.2f);
+            Gizmos.DrawWireSphere(end, 0.2f);
+        }
+    }
+}
