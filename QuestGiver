@@ -1,0 +1,138 @@
+// ============================================================
+// 15. QuestGiver.cs
+// Назначение: Квестовая система (приём ключей, открытие пути)
+// ============================================================
+using UnityEngine;
+
+public class QuestGiver : MonoBehaviour
+{
+    [Header("Настройки квеста")]
+    [SerializeField] private int[] requiredItemIDs;   // ID требуемых ключей
+    [SerializeField] private int requiredKeyCount = 3; // Количество ключей для передачи
+    [SerializeField] private GameObject blockedPath;   // Препятствие, которое исчезает после квеста
+    
+    [Header("Диалоги")]
+    [SerializeField][TextArea(2, 3)] private string noItemDialogue;     // Нет ключей
+    [SerializeField][TextArea(2, 3)] private string hasItemDialogue;    // Есть ключи
+    [SerializeField][TextArea(2, 3)] private string completedDialogue;  // Квест выполнен
+    
+    private DialogueTrigger dialogueTrigger;
+    private InventoryManager playerInventory;
+    private bool questCompleted = false;
+    private int keysSubmitted = 0;
+    
+    // Событие для паттерна Observer
+    public System.Action OnQuestCompleted;
+    
+    void Start()
+    {
+        dialogueTrigger = GetComponent<DialogueTrigger>();
+        playerInventory = FindObjectOfType<InventoryManager>();
+        
+        if (requiredItemIDs == null || requiredItemIDs.Length == 0)
+        {
+            requiredItemIDs = new int[] { 1, 2, 3 }; // Значения по умолчанию
+        }
+        
+        UpdateQuestDialogue();
+    }
+    
+    // Обновление текста диалога в зависимости от прогресса квеста
+    void UpdateQuestDialogue()
+    {
+        if (dialogueTrigger == null) return;
+        string[] dialogueLines;
+        
+        if (questCompleted)
+        {
+            dialogueLines = new string[] { completedDialogue };
+        }
+        else
+        {
+            bool hasAnyKey = false;
+            if (playerInventory != null)
+            {
+                foreach (int id in requiredItemIDs)
+                {
+                    if (playerInventory.HasQuestItem(id))
+                    {
+                        hasAnyKey = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (hasAnyKey)
+            {
+                dialogueLines = new string[] { $"{hasItemDialogue}\n\nПередано ключей: {keysSubmitted}/{requiredKeyCount}" };
+            }
+            else
+            {
+                dialogueLines = new string[] { noItemDialogue };
+            }
+        }
+        
+        // Исправление бага B-5: вызов публичного метода вместо рефлексии
+        dialogueTrigger.UpdateDialogueLines(dialogueLines);
+    }
+    
+    // Проверка статуса квеста (вызывается из инвентаря)
+    public void CheckQuestStatus()
+    {
+        if (questCompleted) return;
+        UpdateQuestDialogue();
+    }
+    
+    // Вызывается при начале диалога
+    public void OnDialogueStarted()
+    {
+        UpdateQuestDialogue();
+    }
+    
+    // Попытка передать квестовый предмет
+    public bool TryGiveQuestItem(int itemID)
+    {
+        if (questCompleted) return false;
+        if (playerInventory == null) return false;
+        
+        float distance = Vector2.Distance(transform.position, playerInventory.transform.position);
+        if (distance > 5f) return false; // Слишком далеко от NPC
+        
+        // Проверка, подходит ли предмет для квеста
+        bool isValidKey = false;
+        foreach (int id in requiredItemIDs)
+        {
+            if (id == itemID)
+            {
+                isValidKey = true;
+                break;
+            }
+        }
+        if (!isValidKey) return false;
+        
+        if (!playerInventory.HasQuestItem(itemID)) return false;
+        
+        bool removed = playerInventory.RemoveItemByID(itemID);
+        if (!removed) return false;
+        
+        keysSubmitted++;
+        
+        if (keysSubmitted >= requiredKeyCount)
+        {
+            if (blockedPath != null)
+                blockedPath.SetActive(false); // Открываем проход
+            
+            questCompleted = true;
+            OnQuestCompleted?.Invoke(); // Уведомляем подписчиков (паттерн Observer)
+        }
+        
+        UpdateQuestDialogue();
+        return true;
+    }
+    
+    // Диагностика статуса квеста (для отладки)
+    public void DebugQuestStatus()
+    {
+        Debug.Log($"questCompleted: {questCompleted}, keysSubmitted: {keysSubmitted}/{requiredKeyCount}");
+    }
+}
